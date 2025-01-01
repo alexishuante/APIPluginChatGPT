@@ -63,6 +63,7 @@ public class ChatGPTPlugin implements IPlugin, IPluginActionDelegate {
 
             con.setRequestMethod("POST");
             con.setRequestProperty("Content-Type", "application/json");
+            con.setRequestProperty("Authorization", "Bearer [insert key here and remove brackets]");
             
             JSONObject data = new JSONObject();
             data.put("model", "text-davinci-003");
