@@ -1,0 +1,21 @@
+!create restaurant3 : Restaurant
+!restaurant3.name := 'string2'
+!create order4 : Order
+!order4.delivered := false
+!order4.food := 'string1'
+!order4.payedFor := true
+!order4.ready := false
+!create customer4 : Customer
+!insert (restaurant3, customer4) into Serving
+!insert (restaurant3, order4) into Making
+!insert (restaurant3, order4) into Making
+!insert (customer4, order4) into OrderedBy
+!insert (restaurant3, customer4) into Serving
+!insert (customer4, order4) into OrderedBy
+!openter restaurant3 makeOrder(order4)
+!restaurant3.name := 'string2'
+!order4.delivered := false
+!order4.food := 'string1'
+!order4.payedFor := true
+!order4.ready := false
+!opexit

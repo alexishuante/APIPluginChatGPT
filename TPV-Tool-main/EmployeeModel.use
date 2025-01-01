@@ -1,0 +1,46 @@
+model EmployeeModel
+
+class Employee
+attributes
+name : String
+salary : Integer
+end
+
+class Department
+attributes
+name: String
+location : String
+budget : Integer
+operations
+hireEmployee(newEmployee : Employee)
+end
+
+class Project
+attributes
+name : String
+budget : Project
+end
+
+association WorksIn between
+Employee[0..*] role employees
+Department[1..*] role department
+end
+
+association WorksOn between
+Employee[0..*] role employee
+Project[0..*] role project
+end
+
+association Controls between
+Department[1] role department
+Project[0..*] role project
+end
+
+constraints
+
+context Department
+inv: self.employees->size >= self.project->size
+
+context Department::hireEmployee(newEmployee : Employee)
+pre: self.project->size() > 0
+post: self.employees->includes(newEmployee)

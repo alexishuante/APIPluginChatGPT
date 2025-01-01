@@ -1,0 +1,194 @@
+model TrafficLightSTM
+
+enum Color {
+Green, Red
+ };
+
+class Snapshot
+operations
+getNext() : Snapshot = 
+self.nextT.nextS
+getPost() : Set(Snapshot) = 
+Set{self.getNext()}->closure( $elem0:Snapshot | $elem0.getNext() )->excluding(null)
+getPrevious() : Snapshot = 
+self.beforeT.beforeS
+getPre() : Set(Snapshot) = 
+Set{self.getPrevious()}->closure( $elem1:Snapshot | $elem1.getPrevious() )->excluding(null)
+end
+
+class Button
+attributes
+snapshotObjectId : Integer
+operations
+getNext() : Button = 
+self.snapshot.getNext().button->any( b:Button | (self.snapshotObjectId = b.snapshotObjectId) )
+getPost() : Set(Button) = 
+Set{self.getNext()}->closure( $elem2:Button | $elem2.getNext() )->excluding(null)
+getPrevious() : Button = 
+self.snapshot.getPrevious().button->any( b:Button | (self.snapshotObjectId = b.snapshotObjectId) )
+getPre() : Set(Button) = 
+Set{self.getPrevious()}->closure( $elem3:Button | $elem3.getPrevious() )->excluding(null)
+end
+
+class TrafficLight
+attributes
+carLight : Color
+pedLight : Color
+requested : Boolean
+snapshotObjectId : Integer
+operations
+getCurrentSnapshot() : Snapshot = 
+self.snapshot
+getNext() : TrafficLight = 
+self.snapshot.getNext().trafficlight->any( t:TrafficLight | (self.snapshotObjectId = t.snapshotObjectId) )
+getPost() : Set(TrafficLight) = 
+Set{self.getNext()}->closure( $elem4:TrafficLight | $elem4.getNext() )->excluding(null)
+getPrevious() : TrafficLight = 
+self.snapshot.getPrevious().trafficlight->any( t:TrafficLight | (self.snapshotObjectId = t.snapshotObjectId) )
+getPre() : Set(TrafficLight) = 
+Set{self.getPrevious()}->closure( $elem5:TrafficLight | $elem5.getPrevious() )->excluding(null)
+atSnapshot(refSnap : Snapshot) : TrafficLight = 
+refSnap.trafficlight->any( t:TrafficLight | (self.snapshotObjectId = t.snapshotObjectId) )
+end
+
+class FirstSnapshot < Snapshot
+end
+
+class LastSnapshot < Snapshot
+end
+
+association PedButtonTrafficLight between
+TrafficLight[1] role light
+Button[1..*]
+end
+
+abstract class Transition
+end
+
+class Button_requestPass < Transition
+attributes
+result : Boolean
+transitionContext : Button
+end
+
+class TrafficLight_switchCarLight < Transition
+attributes
+result : Color
+transitionContext : TrafficLight
+end
+
+class TrafficLight_switchPedLight < Transition
+attributes
+result : Color
+transitionContext : TrafficLight
+end
+
+composition SnapshotButton between
+Snapshot[1]
+Button[*]
+end
+
+composition SnapshotTrafficLight between
+Snapshot[1]
+TrafficLight[*] role trafficlight
+end
+
+association beforeTransition between
+Snapshot[1] role beforeS
+Transition[0..1] role nextT
+end
+
+association afterTransition between
+Snapshot[1] role nextS
+Transition[0..1] role beforeT
+end
+
+constraints
+context TrafficLight inv optimizationConstraint:
+not ((self.requested = true) implies (let CS:Snapshot = self.getCurrentSnapshot() in (let FS:Set(Snapshot) = CS.getPost() in (let FSQ:Set(Snapshot) = FS->select( s:Snapshot | (self.atSnapshot(s).carLight = Color::Red) ) in (let FSP:Set(Snapshot) = FS->including(CS)->select( s:Snapshot | (self.atSnapshot(s).pedLight = Color::Red) ) in if (FSQ->size() > 0) then if (FSP->size() > 0) then FSQ->exists( s:Snapshot | ((FSP - s.getPost()->including(s)) = (FS->including(CS) - s.getPost()->including(s))) ) else false endif else (FSP = FS->including(CS)) endif)))))
+
+context self : Snapshot inv acyclicScenareo:
+(self.getPost()->excludes(self) and self.getPre()->excludes(self))
+
+context self : Snapshot inv sameSnapshot:
+Snapshot.allInstances()->forAll( s:Snapshot | (((self.nextT = s.nextT) and (self.beforeT = s.beforeT)) implies (self = s)) )
+
+context self : Snapshot inv oneScenareo:
+(((Snapshot.allInstances()->select( $elem6:Snapshot | $elem6.oclIsTypeOf(FirstSnapshot) )->size() <= 1) and (Snapshot.allInstances()->select( $elem7:Snapshot | $elem7.oclIsTypeOf(LastSnapshot) )->size() <= 1)) and Snapshot.allInstances()->select( $elem8:Snapshot | not ($elem8.oclIsTypeOf(FirstSnapshot) or $elem8.oclIsTypeOf(LastSnapshot)) )->forAll( $elem9:Snapshot | ($elem9.getPre()->exists( $elem10:Snapshot | $elem10.oclIsTypeOf(FirstSnapshot) ) and $elem9.getPost()->exists( $elem11:Snapshot | $elem11.oclIsTypeOf(LastSnapshot) )) ))
+
+context self : Snapshot inv firstLast:
+((Snapshot.allInstances()->size() > 1) implies ((self.beforeT.isUndefined() implies self.oclIsTypeOf(FirstSnapshot)) and (self.nextT.isUndefined() implies self.oclIsTypeOf(LastSnapshot))))
+
+context self : Button inv uniqueIds:
+Button.allInstances()->forAll( b:Button | (((b.snapshot = self.snapshot) and (b.snapshotObjectId = self.snapshotObjectId)) implies (b = self)) )
+
+context self : TrafficLight inv uniqueIds:
+TrafficLight.allInstances()->forAll( t:TrafficLight | (((t.snapshot = self.snapshot) and (t.snapshotObjectId = self.snapshotObjectId)) implies (t = self)) )
+
+
+context self : Transition inv sameTransition:
+Transition.allInstances()->forAll( t:Transition | (((self.nextS = t.nextS) and (self.beforeS = t.beforeS)) implies (self = t)) )
+
+context self : Button_requestPass inv validContext:
+(self.transitionContext.snapshot = self.beforeS)
+
+context self : Button_requestPass inv post1:
+(self.transitionContext.getNext().light.requested = true)
+
+context self : Button_requestPass inv pre1:
+(self.transitionContext.light.pedLight = Color::Red)
+
+context self : TrafficLight_switchCarLight inv validContext:
+(self.transitionContext.snapshot = self.beforeS)
+
+context self : TrafficLight_switchPedLight inv validContext:
+(self.transitionContext.snapshot = self.beforeS)
+
+context self : TrafficLight_switchPedLight inv pre1:
+(self.transitionContext.requested = true)
+
+context self : TrafficLight_switchPedLight inv post2:
+(self.transitionContext.getNext().requested = false)
+
+context self : TrafficLight inv inv1:
+not ((self.requested = true) implies (let CS:Snapshot = self.getCurrentSnapshot() in (let FS:Set(Snapshot) = CS.getPost() in (let FSQ:Set(Snapshot) = FS->select( s:Snapshot | (self.atSnapshot(s).carLight = Color::Red) ) in (let FSP:Set(Snapshot) = FS->including(CS)->select( s:Snapshot | (self.atSnapshot(s).pedLight = Color::Red) ) in if (FSQ->size() > 0) then if (FSP->size() > 0) then FSQ->exists( s:Snapshot | ((FSP - s.getPost()->including(s)) = (FS->including(CS) - s.getPost()->including(s))) ) else false endif else (FSP = FS->including(CS)) endif)))))
+
+context self : TrafficLight inv inv2:
+not ((self.requested = true) implies (let CS:Snapshot = self.getCurrentSnapshot() in (let FS:Set(Snapshot) = CS.getPost() in (let FSQ:Set(Snapshot) = FS->select( s:Snapshot | (self.atSnapshot(s).carLight = Color::Red) ) in (let FSP:Set(Snapshot) = FS->including(CS)->select( s:Snapshot | (self.atSnapshot(s).pedLight = Color::Red) ) in if (FSQ->size() > 0) then if (FSP->size() > 0) then FSQ->exists( s:Snapshot | ((FSP - s.getPost()->including(s)) = (FS->including(CS) - s.getPost()->including(s))) ) else false endif else (FSP = FS->including(CS)) endif)))))
+
+context Button_requestPass
+inv frameDel_TrafficLight: (TrafficLight.allInstances()->select(o | o.snapshot = self.beforeS)->collect(snapshotObjectId)->asSet()-TrafficLight.allInstances()->select(o | o.snapshot = self.nextS)->collect(snapshotObjectId)->asSet())->size() = 0
+context Button_requestPass
+inv frameSus_Button: (Button.allInstances()->select(o | o.snapshot = self.beforeS)->collect(snapshotObjectId)->asSet()->intersection(Button.allInstances()->select(o | o.snapshot = self.nextS)->collect(snapshotObjectId)->asSet())->collect(id | beforeS.button->any(o | o.snapshotObjectId = id))->asSet())->forAll(true)
+context TrafficLight_switchCarLight
+inv frameAdd_TrafficLight: (TrafficLight.allInstances()->select(o | o.snapshot = self.nextS)->collect(snapshotObjectId)->asSet()-TrafficLight.allInstances()->select(o | o.snapshot = self.beforeS)->collect(snapshotObjectId)->asSet())->size() = 0
+context TrafficLight_switchPedLight
+inv frameDel_TrafficLight: (TrafficLight.allInstances()->select(o | o.snapshot = self.beforeS)->collect(snapshotObjectId)->asSet()-TrafficLight.allInstances()->select(o | o.snapshot = self.nextS)->collect(snapshotObjectId)->asSet())->size() = 0
+context TrafficLight_switchPedLight
+inv frameSus_Button: (Button.allInstances()->select(o | o.snapshot = self.beforeS)->collect(snapshotObjectId)->asSet()->intersection(Button.allInstances()->select(o | o.snapshot = self.nextS)->collect(snapshotObjectId)->asSet())->collect(id | beforeS.button->any(o | o.snapshotObjectId = id))->asSet())->forAll(true)
+context TrafficLight_switchCarLight
+inv frameDel_Button: (Button.allInstances()->select(o | o.snapshot = self.beforeS)->collect(snapshotObjectId)->asSet()-Button.allInstances()->select(o | o.snapshot = self.nextS)->collect(snapshotObjectId)->asSet())->size() = 0
+context TrafficLight_switchCarLight
+inv frameSus_Button: (Button.allInstances()->select(o | o.snapshot = self.beforeS)->collect(snapshotObjectId)->asSet()->intersection(Button.allInstances()->select(o | o.snapshot = self.nextS)->collect(snapshotObjectId)->asSet())->collect(id | beforeS.button->any(o | o.snapshotObjectId = id))->asSet())->forAll(true)
+context TrafficLight_switchCarLight
+inv frameDel_TrafficLight: (TrafficLight.allInstances()->select(o | o.snapshot = self.beforeS)->collect(snapshotObjectId)->asSet()-TrafficLight.allInstances()->select(o | o.snapshot = self.nextS)->collect(snapshotObjectId)->asSet())->size() = 0
+context TrafficLight_switchPedLight
+inv frameSus_TrafficLight: let TrafficLight_C : Set(TrafficLight) = Set{Set{self.transitionContext.getNext().getPrevious()}->flatten()}->flatten() in (self.transitionContext <> null and Set{self.transitionContext}->flatten() <> Set{} implies (self.transitionContext.getNext().carLight = self.transitionContext.carLight and self.transitionContext.getNext().pedLight = self.transitionContext.pedLight)) and (TrafficLight.allInstances()->select(o | o.snapshot = self.beforeS)->collect(snapshotObjectId)->asSet()->intersection(TrafficLight.allInstances()->select(o | o.snapshot = self.nextS)->collect(snapshotObjectId)->asSet())->collect(id | beforeS.trafficlight->any(o | o.snapshotObjectId = id))->asSet()-TrafficLight_C)->forAll(getNext().carLight = carLight and getNext().pedLight = pedLight and getNext().requested = requested and true)
+context Button_requestPass
+inv frameAdd_TrafficLight: (TrafficLight.allInstances()->select(o | o.snapshot = self.nextS)->collect(snapshotObjectId)->asSet()-TrafficLight.allInstances()->select(o | o.snapshot = self.beforeS)->collect(snapshotObjectId)->asSet())->size() = 0
+context TrafficLight_switchPedLight
+inv frameAdd_TrafficLight: (TrafficLight.allInstances()->select(o | o.snapshot = self.nextS)->collect(snapshotObjectId)->asSet()-TrafficLight.allInstances()->select(o | o.snapshot = self.beforeS)->collect(snapshotObjectId)->asSet())->size() = 0
+context TrafficLight_switchCarLight
+inv frameSus_TrafficLight: (TrafficLight.allInstances()->select(o | o.snapshot = self.beforeS)->collect(snapshotObjectId)->asSet()->intersection(TrafficLight.allInstances()->select(o | o.snapshot = self.nextS)->collect(snapshotObjectId)->asSet())->collect(id | beforeS.trafficlight->any(o | o.snapshotObjectId = id))->asSet())->forAll(getNext().carLight = carLight and getNext().pedLight = pedLight and getNext().requested = requested and true)
+context TrafficLight_switchPedLight
+inv frameDel_Button: (Button.allInstances()->select(o | o.snapshot = self.beforeS)->collect(snapshotObjectId)->asSet()-Button.allInstances()->select(o | o.snapshot = self.nextS)->collect(snapshotObjectId)->asSet())->size() = 0
+context Button_requestPass
+inv frameSus_TrafficLight: let TrafficLight_C : Set(TrafficLight) = Set{Set{self.transitionContext.getNext().light.getPrevious()}->flatten()}->flatten() in (self.transitionContext.light <> null and Set{self.transitionContext.light}->flatten() <> Set{} implies (self.transitionContext.light.getNext().carLight = self.transitionContext.light.carLight and self.transitionContext.light.getNext().pedLight = self.transitionContext.light.pedLight)) and (TrafficLight.allInstances()->select(o | o.snapshot = self.beforeS)->collect(snapshotObjectId)->asSet()->intersection(TrafficLight.allInstances()->select(o | o.snapshot = self.nextS)->collect(snapshotObjectId)->asSet())->collect(id | beforeS.trafficlight->any(o | o.snapshotObjectId = id))->asSet()-TrafficLight_C)->forAll(getNext().carLight = carLight and getNext().pedLight = pedLight and getNext().requested = requested and true)
+context TrafficLight_switchPedLight
+inv frameAdd_Button: (Button.allInstances()->select(o | o.snapshot = self.nextS)->collect(snapshotObjectId)->asSet()-Button.allInstances()->select(o | o.snapshot = self.beforeS)->collect(snapshotObjectId)->asSet())->size() = 0
+context TrafficLight_switchCarLight
+inv frameAdd_Button: (Button.allInstances()->select(o | o.snapshot = self.nextS)->collect(snapshotObjectId)->asSet()-Button.allInstances()->select(o | o.snapshot = self.beforeS)->collect(snapshotObjectId)->asSet())->size() = 0
+context Button_requestPass
+inv frameAdd_Button: (Button.allInstances()->select(o | o.snapshot = self.nextS)->collect(snapshotObjectId)->asSet()-Button.allInstances()->select(o | o.snapshot = self.beforeS)->collect(snapshotObjectId)->asSet())->size() = 0
+context Button_requestPass
+inv frameDel_Button: (Button.allInstances()->select(o | o.snapshot = self.beforeS)->collect(snapshotObjectId)->asSet()-Button.allInstances()->select(o | o.snapshot = self.nextS)->collect(snapshotObjectId)->asSet())->size() = 0

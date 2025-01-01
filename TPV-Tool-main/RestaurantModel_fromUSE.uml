@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="20131001" xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:uml="http://www.eclipse.org/uml2/5.0.0/UML">
+    <uml:Model xmi:type="uml:Model" xmi:id="RestaurantModel" name="RestaurantModel">
+    <packagedElement xmi:type="uml:PrimitiveType" xmi:id="RestaurantModel_Integer" name="Integer"/>
+    <packagedElement xmi:type="uml:PrimitiveType" xmi:id="RestaurantModel_UnlimitedNatural" name="UnlimitedNatural"/>
+    <packagedElement xmi:type="uml:PrimitiveType" xmi:id="RestaurantModel_Real" name="Real"/>
+    <packagedElement xmi:type="uml:PrimitiveType" xmi:id="RestaurantModel_Boolean" name="Boolean"/>
+    <packagedElement xmi:type="uml:PrimitiveType" xmi:id="RestaurantModel_String" name="String"/>    <packagedElement xmi:type="uml:Class" xmi:id="RestaurantModel_Customer" name="Customer">
+      <ownedOperation xmi:id="RestaurantModel_Customer_payForOrder" name="payForOrder" isQuery="false" postcondition="RestaurantModel_Customer_payForOrder_post1">
+        <ownedParameter xmi:id="RestaurantModel_Customer_payForOrder_order" name = "order" type="RestaurantModel_Order" direction="in"/>
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="RestaurantModel_Customer_payForOrder_order" value="0"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="RestaurantModel_Customer_payForOrder_order" value="1"/>
+        <ownedRule xmi:id="RestaurantModel_Customer_payForOrder_post1" name="post1">
+          <specification xmi:type="uml:OpaqueExpression" xmi:id="RestaurantModel_Customer_payForOrder_post1_specification">
+            <body>(order.payedFor = true)</body>
+          </specification>
+        </ownedRule>
+      </ownedOperation>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="RestaurantModel_Order" name="Order">
+      <ownedAttribute xmi:id="RestaurantModel_Order_delivered" name="delivered" type="RestaurantModel_Boolean"/>
+      <ownedAttribute xmi:id="RestaurantModel_Order_food" name="food" type="RestaurantModel_String"/>
+      <ownedAttribute xmi:id="RestaurantModel_Order_payedFor" name="payedFor" type="RestaurantModel_Boolean"/>
+      <ownedAttribute xmi:id="RestaurantModel_Order_ready" name="ready" type="RestaurantModel_Boolean"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="RestaurantModel_Restaurant" name="Restaurant">
+      <ownedAttribute xmi:id="RestaurantModel_Restaurant_name" name="name" type="RestaurantModel_String"/>
+      <ownedOperation xmi:id="RestaurantModel_Restaurant_deliverOrder" name="deliverOrder" isQuery="false" postcondition="RestaurantModel_Restaurant_deliverOrder_post2">
+        <ownedParameter xmi:id="RestaurantModel_Restaurant_deliverOrder_order" name = "order" type="RestaurantModel_Order" direction="in"/>
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="RestaurantModel_Restaurant_deliverOrder_order" value="0"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="RestaurantModel_Restaurant_deliverOrder_order" value="1"/>
+        <ownedRule xmi:id="RestaurantModel_Restaurant_deliverOrder_post2" name="post2">
+          <specification xmi:type="uml:OpaqueExpression" xmi:id="RestaurantModel_Restaurant_deliverOrder_post2_specification">
+            <body>(order.delivered = true)</body>
+          </specification>
+        </ownedRule>
+      </ownedOperation>
+      <ownedOperation xmi:id="RestaurantModel_Restaurant_makeOrder" name="makeOrder" isQuery="false">
+        <ownedParameter xmi:id="RestaurantModel_Restaurant_makeOrder_order" name = "order" type="RestaurantModel_Order" direction="in"/>
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="RestaurantModel_Restaurant_makeOrder_order" value="0"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="RestaurantModel_Restaurant_makeOrder_order" value="1"/>
+      </ownedOperation>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Association" xmi:id="RestaurantModel_Making" name="Making" memberEnd="RestaurantModel_Making_restaurant RestaurantModel_Making_order">
+      <ownedEnd xmi:id="RestaurantModel_Making_restaurant" name="restaurant" type="RestaurantModel_Restaurant" association="RestaurantModel_Making">
+        <lowerValue xmi:type="uml:LiteralInteger" xmi:id="RestaurantModel_Making_restaurant_lower" value="1"/>
+        <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="RestaurantModel_Making_restaurant_upper" value="1"/>
+      </ownedEnd>
+      <ownedEnd xmi:id="RestaurantModel_Making_order" name="order" type="RestaurantModel_Order" association="RestaurantModel_Making">
+        <lowerValue xmi:type="uml:LiteralInteger" xmi:id="RestaurantModel_Making_order_lower" value="0"/>
+        <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="RestaurantModel_Making_order_upper" value="*"/>
+      </ownedEnd>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Association" xmi:id="RestaurantModel_OrderedBy" name="OrderedBy" memberEnd="RestaurantModel_OrderedBy_customer RestaurantModel_OrderedBy_order">
+      <ownedEnd xmi:id="RestaurantModel_OrderedBy_customer" name="customer" type="RestaurantModel_Customer" association="RestaurantModel_OrderedBy">
+        <lowerValue xmi:type="uml:LiteralInteger" xmi:id="RestaurantModel_OrderedBy_customer_lower" value="1"/>
+        <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="RestaurantModel_OrderedBy_customer_upper" value="1"/>
+      </ownedEnd>
+      <ownedEnd xmi:id="RestaurantModel_OrderedBy_order" name="order" type="RestaurantModel_Order" association="RestaurantModel_OrderedBy">
+        <lowerValue xmi:type="uml:LiteralInteger" xmi:id="RestaurantModel_OrderedBy_order_lower" value="1"/>
+        <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="RestaurantModel_OrderedBy_order_upper" value="1"/>
+      </ownedEnd>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Association" xmi:id="RestaurantModel_Serving" name="Serving" memberEnd="RestaurantModel_Serving_restaurant RestaurantModel_Serving_customer">
+      <ownedEnd xmi:id="RestaurantModel_Serving_restaurant" name="restaurant" type="RestaurantModel_Restaurant" association="RestaurantModel_Serving">
+        <lowerValue xmi:type="uml:LiteralInteger" xmi:id="RestaurantModel_Serving_restaurant_lower" value="1"/>
+        <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="RestaurantModel_Serving_restaurant_upper" value="1"/>
+      </ownedEnd>
+      <ownedEnd xmi:id="RestaurantModel_Serving_customer" name="customer" type="RestaurantModel_Customer" association="RestaurantModel_Serving">
+        <lowerValue xmi:type="uml:LiteralInteger" xmi:id="RestaurantModel_Serving_customer_lower" value="0"/>
+        <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="RestaurantModel_Serving_customer_upper" value="*"/>
+      </ownedEnd>
+    </packagedElement>
+    </uml:Model></xmi:XMI>

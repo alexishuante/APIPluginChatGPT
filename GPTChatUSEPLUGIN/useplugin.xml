@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?use version="6.0.0"?>
+<plugin name="ChatGPT" version="1.1">
+    <actions>
+        <action label="Open ChatGPT" icon="resources/ChatGPTImage.gif"
+            class="ChatGPTPlugin" tooltip="Open ChatGPT"
+            menu="View" menuitem="ChatGPT" toolbaritem="plugins"
+            id="org.tzi.use.gui.plugins.ChatGPTPlugin">
+        </action>
+    </actions>
+</plugin>

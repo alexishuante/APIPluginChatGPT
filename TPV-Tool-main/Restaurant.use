@@ -1,0 +1,46 @@
+model RestaurantModel
+
+class Restaurant
+attributes
+name : String
+operations
+deliverOrder(order : Order)
+makeOrder(order : Order)
+end
+
+class Customer
+operations
+payForOrder(order : Order)
+end
+
+class Order
+attributes
+delivered : Boolean
+food : String
+payedFor : Boolean
+ready : Boolean
+end
+
+association Making between
+Restaurant[1] role restaurant
+Order[0..*] role order
+end
+
+association Serving between
+Restaurant[1] role restaurant
+Customer[0..*] role customer
+end
+
+association OrderedBy between
+Customer[1] role customer
+Order[1] role order
+end
+
+constraints
+
+context Customer::payForOrder(order: Order)
+post: order.payedFor = true
+
+context Restaurant::deliverOrder(order: Order)
+post: order.delivered = true
+

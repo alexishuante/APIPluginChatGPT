@@ -1,0 +1,4 @@
+context Order
+inv: not(self.payedFor = true implies
+(let CS:Snapshot = self.getCurrentSnapshot() in CS.getPost()->including(CS)->exists(s | self.atSnapshot(s).delivered = true)))
+

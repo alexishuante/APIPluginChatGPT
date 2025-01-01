@@ -1,0 +1,3 @@
+context TrafficLight
+inv: not(self.requested = true implies
+self.getNext().carLight = #Red)

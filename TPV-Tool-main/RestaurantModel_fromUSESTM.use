@@ -1,0 +1,273 @@
+model RestaurantModelSTM
+
+class Snapshot
+operations
+getNext() : Snapshot = self.nextT.nextS
+
+getPost() : Set(Snapshot) = Set{self.getNext()}->closure(getNext())->excluding(null)
+
+getPrevious() : Snapshot = self.beforeT.beforeS
+
+getPre() : Set(Snapshot) = Set{self.getPrevious()}->closure(getPrevious())->excluding(null)
+
+sat(e : OclAny) : Boolean = true
+
+end
+
+class Restaurant
+attributes
+name : String
+snapshotObjectId : Integer
+operations
+getCurrentSnapshot() : Snapshot = self.snapshot
+
+getNext() : Restaurant = self.snapshot.getNext().restaurant->any(r | self.snapshotObjectId = r.snapshotObjectId)
+
+getPost() : Set(Restaurant) = Set{self.getNext()}->closure(getNext())->excluding(null)
+
+getPrevious() : Restaurant = self.snapshot.getPrevious().restaurant->any(r | self.snapshotObjectId = r.snapshotObjectId)
+
+getPre() : Set(Restaurant) = Set{self.getPrevious()}->closure(getPrevious())->excluding(null)
+
+atSnapshot(refSnap : Snapshot) : Restaurant = refSnap.restaurant->any(r | self.snapshotObjectId = r.snapshotObjectId)
+
+end
+
+class Customer
+attributes
+snapshotObjectId : Integer
+operations
+getCurrentSnapshot() : Snapshot = self.snapshot
+
+getNext() : Customer = self.snapshot.getNext().customer->any(c | self.snapshotObjectId = c.snapshotObjectId)
+
+getPost() : Set(Customer) = Set{self.getNext()}->closure(getNext())->excluding(null)
+
+getPrevious() : Customer = self.snapshot.getPrevious().customer->any(c | self.snapshotObjectId = c.snapshotObjectId)
+
+getPre() : Set(Customer) = Set{self.getPrevious()}->closure(getPrevious())->excluding(null)
+
+atSnapshot(refSnap : Snapshot) : Customer = refSnap.customer->any(c | self.snapshotObjectId = c.snapshotObjectId)
+
+end
+
+class Order
+attributes
+delivered : Boolean
+food : String
+payedFor : Boolean
+ready : Boolean
+snapshotObjectId : Integer
+operations
+getCurrentSnapshot() : Snapshot = self.snapshot
+
+getNext() : Order = self.snapshot.getNext().order->any(o | self.snapshotObjectId = o.snapshotObjectId)
+
+getPost() : Set(Order) = Set{self.getNext()}->closure(getNext())->excluding(null)
+
+getPrevious() : Order = self.snapshot.getPrevious().order->any(o | self.snapshotObjectId = o.snapshotObjectId)
+
+getPre() : Set(Order) = Set{self.getPrevious()}->closure(getPrevious())->excluding(null)
+
+atSnapshot(refSnap : Snapshot) : Order = refSnap.order->any(o | self.snapshotObjectId = o.snapshotObjectId)
+
+end
+
+class FirstSnapshot < Snapshot
+end
+
+class LastSnapshot < Snapshot
+end
+
+association OrderedBy between
+Customer[1] role customer
+Order[1] role order
+end
+association Serving between
+Restaurant[1] role restaurant
+Customer[0..*] role customer
+end
+association Making between
+Restaurant[1] role restaurant
+Order[0..*] role order
+end
+abstract class Transition
+end
+
+class Customer_payForOrder < Transition
+attributes
+order : Order
+transitionContext : Customer
+end
+
+class Restaurant_deliverOrder < Transition
+attributes
+order : Order
+transitionContext : Restaurant
+end
+
+class Restaurant_makeOrder < Transition
+attributes
+order : Order
+transitionContext : Restaurant
+end
+
+composition SnapshotRestaurant between
+Snapshot[1] role snapshot
+Restaurant[0..*] role restaurant
+end
+composition SnapshotCustomer between
+Snapshot[1] role snapshot
+Customer[0..*] role customer
+end
+composition SnapshotOrder between
+Snapshot[1] role snapshot
+Order[0..*] role order
+end
+association beforeTransition between
+Snapshot[1] role beforeS
+Transition[0..1] role nextT
+end
+association afterTransition between
+Snapshot[1] role nextS
+Transition[0..1] role beforeT
+end
+
+constraints
+context Snapshot
+inv acyclicScenareo: self.getPost()->excludes(self) and self.getPre()->excludes(self)
+
+context Snapshot
+inv sameSnapshot: Snapshot.allInstances()->forAll(s | (self.nextT = s.nextT and self.beforeT = s.beforeT) implies self = s)
+
+context Snapshot
+inv oneScenareo: Snapshot.allInstances()->select(oclIsTypeOf(FirstSnapshot))->size() <= 1 and Snapshot.allInstances()->select(oclIsTypeOf(LastSnapshot))->size() <= 1 and Snapshot.allInstances()->select(not (oclIsTypeOf(FirstSnapshot) or oclIsTypeOf(LastSnapshot)))->forAll(getPre()->exists(oclIsTypeOf(FirstSnapshot)) and getPost()->exists(oclIsTypeOf(LastSnapshot)))
+
+context Snapshot
+inv firstLast: Snapshot.allInstances()->size() > 1 implies ((self.beforeT.oclIsUndefined() implies self.oclIsTypeOf(FirstSnapshot)) and (self.nextT.oclIsUndefined() implies self.oclIsTypeOf(LastSnapshot)))
+
+context Restaurant
+inv validLinking_Making: Set{self.snapshot.order}->flatten()->includesAll(Set{self.order}->flatten()->excluding(null))
+
+context Restaurant
+inv uniqueIds: Restaurant.allInstances()->forAll(r : Restaurant | (r.snapshot = self.snapshot and r.snapshotObjectId = self.snapshotObjectId) implies r = self)
+
+context Restaurant
+inv validLinking_Serving: Set{self.snapshot.customer}->flatten()->includesAll(Set{self.customer}->flatten()->excluding(null))
+
+
+context Customer
+inv uniqueIds: Customer.allInstances()->forAll(c : Customer | (c.snapshot = self.snapshot and c.snapshotObjectId = self.snapshotObjectId) implies c = self)
+
+context Customer
+inv validLinking_OrderedBy: Set{self.snapshot.order}->flatten()->includesAll(Set{self.order}->flatten()->excluding(null))
+
+
+context Order
+inv uniqueIds: Order.allInstances()->forAll(o : Order | (o.snapshot = self.snapshot and o.snapshotObjectId = self.snapshotObjectId) implies o = self)
+
+
+context Transition
+inv sameTransition: Transition.allInstances()->forAll(t : Transition | (self.nextS = t.nextS and self.beforeS = t.beforeS) implies self = t)
+
+context Customer_payForOrder
+inv frameDel_Restaurant: (Restaurant.allInstances()->select(o | o.snapshot = self.beforeS)->collect(snapshotObjectId)->asSet()-Restaurant.allInstances()->select(o | o.snapshot = self.nextS)->collect(snapshotObjectId)->asSet())->size() = 0
+
+context Customer_payForOrder
+inv validContext: self.transitionContext.snapshot = self.beforeS
+
+context Customer_payForOrder
+inv frameSus_Customer: (Customer.allInstances()->select(o | o.snapshot = self.beforeS)->collect(snapshotObjectId)->asSet()->intersection(Customer.allInstances()->select(o | o.snapshot = self.nextS)->collect(snapshotObjectId)->asSet())->collect(id | beforeS.customer->any(o | o.snapshotObjectId = id))->asSet())->forAll(getNext().order.snapshotObjectId = order.snapshotObjectId and getNext().restaurant.snapshotObjectId = restaurant.snapshotObjectId and true)
+
+context Customer_payForOrder
+inv frameAdd_Order: (Order.allInstances()->select(o | o.snapshot = self.nextS)->collect(snapshotObjectId)->asSet()-Order.allInstances()->select(o | o.snapshot = self.beforeS)->collect(snapshotObjectId)->asSet())->size() = 0
+
+context Customer_payForOrder
+inv frameAdd_Restaurant: (Restaurant.allInstances()->select(o | o.snapshot = self.nextS)->collect(snapshotObjectId)->asSet()-Restaurant.allInstances()->select(o | o.snapshot = self.beforeS)->collect(snapshotObjectId)->asSet())->size() = 0
+
+context Customer_payForOrder
+inv frameDel_Customer: (Customer.allInstances()->select(o | o.snapshot = self.beforeS)->collect(snapshotObjectId)->asSet()-Customer.allInstances()->select(o | o.snapshot = self.nextS)->collect(snapshotObjectId)->asSet())->size() = 0
+
+context Customer_payForOrder
+inv frameSus_Restaurant: (Restaurant.allInstances()->select(o | o.snapshot = self.beforeS)->collect(snapshotObjectId)->asSet()->intersection(Restaurant.allInstances()->select(o | o.snapshot = self.nextS)->collect(snapshotObjectId)->asSet())->collect(id | beforeS.restaurant->any(o | o.snapshotObjectId = id))->asSet())->forAll(getNext().name = name and getNext().customer->collect(snapshotObjectId)->asSet() = customer->collect(snapshotObjectId)->asSet() and getNext().order->collect(snapshotObjectId)->asSet() = order->collect(snapshotObjectId)->asSet() and true)
+
+context Customer_payForOrder
+inv frameDel_Order: (Order.allInstances()->select(o | o.snapshot = self.beforeS)->collect(snapshotObjectId)->asSet()-Order.allInstances()->select(o | o.snapshot = self.nextS)->collect(snapshotObjectId)->asSet())->size() = 0
+
+context Customer_payForOrder
+inv frameSus_Order: let Order_C : Set(Order) = Set{Set{order.getPrevious()}->flatten()}->flatten() in (order <> null and Set{order}->flatten() <> Set{} implies (order.getNext().delivered = order.delivered and order.getNext().food = order.food and order.getNext().ready = order.ready and order.getNext().customer.snapshotObjectId = order.customer.snapshotObjectId and order.getNext().restaurant.snapshotObjectId = order.restaurant.snapshotObjectId)) and (Order.allInstances()->select(o | o.snapshot = self.beforeS)->collect(snapshotObjectId)->asSet()->intersection(Order.allInstances()->select(o | o.snapshot = self.nextS)->collect(snapshotObjectId)->asSet())->collect(id | beforeS.order->any(o | o.snapshotObjectId = id))->asSet()-Order_C)->forAll(getNext().delivered = delivered and getNext().food = food and getNext().payedFor = payedFor and getNext().ready = ready and getNext().customer.snapshotObjectId = customer.snapshotObjectId and getNext().restaurant.snapshotObjectId = restaurant.snapshotObjectId and true)
+
+context Customer_payForOrder
+inv post1: (order.getNext().payedFor = true)
+
+context Customer_payForOrder
+inv frameAdd_Customer: (Customer.allInstances()->select(o | o.snapshot = self.nextS)->collect(snapshotObjectId)->asSet()-Customer.allInstances()->select(o | o.snapshot = self.beforeS)->collect(snapshotObjectId)->asSet())->size() = 0
+
+context Restaurant_deliverOrder
+inv post2: (order.getNext().delivered = true)
+
+context Restaurant_deliverOrder
+inv frameAdd_Customer: (Customer.allInstances()->select(o | o.snapshot = self.nextS)->collect(snapshotObjectId)->asSet()-Customer.allInstances()->select(o | o.snapshot = self.beforeS)->collect(snapshotObjectId)->asSet())->size() = 0
+
+context Restaurant_deliverOrder
+inv frameDel_Order: (Order.allInstances()->select(o | o.snapshot = self.beforeS)->collect(snapshotObjectId)->asSet()-Order.allInstances()->select(o | o.snapshot = self.nextS)->collect(snapshotObjectId)->asSet())->size() = 0
+
+context Restaurant_deliverOrder
+inv frameSus_Customer: (Customer.allInstances()->select(o | o.snapshot = self.beforeS)->collect(snapshotObjectId)->asSet()->intersection(Customer.allInstances()->select(o | o.snapshot = self.nextS)->collect(snapshotObjectId)->asSet())->collect(id | beforeS.customer->any(o | o.snapshotObjectId = id))->asSet())->forAll(getNext().order.snapshotObjectId = order.snapshotObjectId and getNext().restaurant.snapshotObjectId = restaurant.snapshotObjectId and true)
+
+context Restaurant_deliverOrder
+inv frameSus_Order: let Order_C : Set(Order) = Set{Set{order.getPrevious()}->flatten()}->flatten() in (order <> null and Set{order}->flatten() <> Set{} implies (order.getNext().food = order.food and order.getNext().payedFor = order.payedFor and order.getNext().ready = order.ready and order.getNext().customer.snapshotObjectId = order.customer.snapshotObjectId and order.getNext().restaurant.snapshotObjectId = order.restaurant.snapshotObjectId)) and (Order.allInstances()->select(o | o.snapshot = self.beforeS)->collect(snapshotObjectId)->asSet()->intersection(Order.allInstances()->select(o | o.snapshot = self.nextS)->collect(snapshotObjectId)->asSet())->collect(id | beforeS.order->any(o | o.snapshotObjectId = id))->asSet()-Order_C)->forAll(getNext().delivered = delivered and getNext().food = food and getNext().payedFor = payedFor and getNext().ready = ready and getNext().customer.snapshotObjectId = customer.snapshotObjectId and getNext().restaurant.snapshotObjectId = restaurant.snapshotObjectId and true)
+
+context Restaurant_deliverOrder
+inv frameDel_Restaurant: (Restaurant.allInstances()->select(o | o.snapshot = self.beforeS)->collect(snapshotObjectId)->asSet()-Restaurant.allInstances()->select(o | o.snapshot = self.nextS)->collect(snapshotObjectId)->asSet())->size() = 0
+
+context Restaurant_deliverOrder
+inv frameDel_Customer: (Customer.allInstances()->select(o | o.snapshot = self.beforeS)->collect(snapshotObjectId)->asSet()-Customer.allInstances()->select(o | o.snapshot = self.nextS)->collect(snapshotObjectId)->asSet())->size() = 0
+
+context Restaurant_deliverOrder
+inv frameAdd_Restaurant: (Restaurant.allInstances()->select(o | o.snapshot = self.nextS)->collect(snapshotObjectId)->asSet()-Restaurant.allInstances()->select(o | o.snapshot = self.beforeS)->collect(snapshotObjectId)->asSet())->size() = 0
+
+context Restaurant_deliverOrder
+inv validContext: self.transitionContext.snapshot = self.beforeS
+
+context Restaurant_deliverOrder
+inv frameAdd_Order: (Order.allInstances()->select(o | o.snapshot = self.nextS)->collect(snapshotObjectId)->asSet()-Order.allInstances()->select(o | o.snapshot = self.beforeS)->collect(snapshotObjectId)->asSet())->size() = 0
+
+context Restaurant_deliverOrder
+inv frameSus_Restaurant: (Restaurant.allInstances()->select(o | o.snapshot = self.beforeS)->collect(snapshotObjectId)->asSet()->intersection(Restaurant.allInstances()->select(o | o.snapshot = self.nextS)->collect(snapshotObjectId)->asSet())->collect(id | beforeS.restaurant->any(o | o.snapshotObjectId = id))->asSet())->forAll(getNext().name = name and getNext().customer->collect(snapshotObjectId)->asSet() = customer->collect(snapshotObjectId)->asSet() and getNext().order->collect(snapshotObjectId)->asSet() = order->collect(snapshotObjectId)->asSet() and true)
+
+context Restaurant_makeOrder
+inv frameAdd_Restaurant: (Restaurant.allInstances()->select(o | o.snapshot = self.nextS)->collect(snapshotObjectId)->asSet()-Restaurant.allInstances()->select(o | o.snapshot = self.beforeS)->collect(snapshotObjectId)->asSet())->size() = 0
+
+context Restaurant_makeOrder
+inv frameAdd_Customer: (Customer.allInstances()->select(o | o.snapshot = self.nextS)->collect(snapshotObjectId)->asSet()-Customer.allInstances()->select(o | o.snapshot = self.beforeS)->collect(snapshotObjectId)->asSet())->size() = 0
+
+context Restaurant_makeOrder
+inv frameAdd_Order: (Order.allInstances()->select(o | o.snapshot = self.nextS)->collect(snapshotObjectId)->asSet()-Order.allInstances()->select(o | o.snapshot = self.beforeS)->collect(snapshotObjectId)->asSet())->size() = 0
+
+context Restaurant_makeOrder
+inv frameSus_Customer: (Customer.allInstances()->select(o | o.snapshot = self.beforeS)->collect(snapshotObjectId)->asSet()->intersection(Customer.allInstances()->select(o | o.snapshot = self.nextS)->collect(snapshotObjectId)->asSet())->collect(id | beforeS.customer->any(o | o.snapshotObjectId = id))->asSet())->forAll(getNext().order.snapshotObjectId = order.snapshotObjectId and getNext().restaurant.snapshotObjectId = restaurant.snapshotObjectId and true)
+
+context Restaurant_makeOrder
+inv validContext: self.transitionContext.snapshot = self.beforeS
+
+context Restaurant_makeOrder
+inv frameDel_Customer: (Customer.allInstances()->select(o | o.snapshot = self.beforeS)->collect(snapshotObjectId)->asSet()-Customer.allInstances()->select(o | o.snapshot = self.nextS)->collect(snapshotObjectId)->asSet())->size() = 0
+
+context Restaurant_makeOrder
+inv frameSus_Restaurant: (Restaurant.allInstances()->select(o | o.snapshot = self.beforeS)->collect(snapshotObjectId)->asSet()->intersection(Restaurant.allInstances()->select(o | o.snapshot = self.nextS)->collect(snapshotObjectId)->asSet())->collect(id | beforeS.restaurant->any(o | o.snapshotObjectId = id))->asSet())->forAll(getNext().name = name and getNext().customer->collect(snapshotObjectId)->asSet() = customer->collect(snapshotObjectId)->asSet() and getNext().order->collect(snapshotObjectId)->asSet() = order->collect(snapshotObjectId)->asSet() and true)
+
+context Restaurant_makeOrder
+inv frameDel_Restaurant: (Restaurant.allInstances()->select(o | o.snapshot = self.beforeS)->collect(snapshotObjectId)->asSet()-Restaurant.allInstances()->select(o | o.snapshot = self.nextS)->collect(snapshotObjectId)->asSet())->size() = 0
+
+context Restaurant_makeOrder
+inv frameDel_Order: (Order.allInstances()->select(o | o.snapshot = self.beforeS)->collect(snapshotObjectId)->asSet()-Order.allInstances()->select(o | o.snapshot = self.nextS)->collect(snapshotObjectId)->asSet())->size() = 0
+
+context Restaurant_makeOrder
+inv frameSus_Order: (Order.allInstances()->select(o | o.snapshot = self.beforeS)->collect(snapshotObjectId)->asSet()->intersection(Order.allInstances()->select(o | o.snapshot = self.nextS)->collect(snapshotObjectId)->asSet())->collect(id | beforeS.order->any(o | o.snapshotObjectId = id))->asSet())->forAll(getNext().delivered = delivered and getNext().food = food and getNext().payedFor = payedFor and getNext().ready = ready and getNext().customer.snapshotObjectId = customer.snapshotObjectId and getNext().restaurant.snapshotObjectId = restaurant.snapshotObjectId and true)
+
+
+context Order
+inv: not(self.payedFor = true implies
+(let CS:Snapshot = self.getCurrentSnapshot() in CS.getPost()->including(CS)->exists(s | self.atSnapshot(s).delivered = true)))
+
